@@ -62,39 +62,13 @@ export function Navbar({ onOpenMobileMenu }: NavbarProps) {
           <div>
             <div className="flex items-center space-x-1.5 sm:space-x-2">
               <span className="font-bold text-base sm:text-lg tracking-tight text-stone-900">CorpServices</span>
-              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-[#fdf2ed] text-[#c85a32] border border-[#f5d6c6] hidden xs:inline">
-                Enterprise
-              </span>
             </div>
-            <p className="text-xs text-stone-500 hidden sm:block">
-              Gestão de Ordens de Serviço, Chamados e Suprimentos
-            </p>
           </div>
         </div>
 
         {/* Action Controls & Indicators */}
         <div className="flex items-center space-x-2 sm:space-x-3">
           
-          {/* Production Network Status Badge */}
-          <div className="flex items-center space-x-2 bg-[#faf7f2] px-3 py-1.5 rounded-lg border border-[#e7dfd1] text-xs">
-            <Wifi className="w-4 h-4 text-emerald-600" />
-            <span className="text-stone-700 font-semibold hidden md:inline">Rede Conectada</span>
-          </div>
-
-          {/* ERP Sync Quick Status */}
-          <div className="hidden lg:flex items-center space-x-2 bg-[#faf7f2] px-3 py-1.5 rounded-lg border border-[#e7dfd1] text-xs">
-            <Database className="w-3.5 h-3.5 text-[#c85a32]" />
-            <span className="text-stone-700 font-medium">{erpConfig.systemName}</span>
-            <button 
-              onClick={() => syncERPNow()}
-              title="Sincronizar com ERP agora"
-              disabled={isSyncing}
-              className="text-stone-500 hover:text-[#c85a32] transition"
-            >
-              <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-[#c85a32]' : ''}`} />
-            </button>
-          </div>
-
           {/* Notifications Dropdown */}
           <div className="relative">
             <button
@@ -156,11 +130,17 @@ export function Navbar({ onOpenMobileMenu }: NavbarProps) {
 
           {/* User Profile Container (Static/Production) */}
           <div className="flex items-center space-x-2 bg-[#faf7f2] p-1.5 pr-3 rounded-lg border border-[#e7dfd1]">
-            <img 
-              src={currentUser.avatar} 
-              alt={currentUser.name} 
-              className="w-7 h-7 rounded-full object-cover border border-[#d6cab8]"
-            />
+            {currentUser.avatar ? (
+              <img 
+                src={currentUser.avatar} 
+                alt={currentUser.name} 
+                className="w-7 h-7 rounded-full object-cover border border-[#d6cab8]"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center border border-[#d6cab8] text-stone-500 font-bold text-xs">
+                {currentUser.name.charAt(0)}
+              </div>
+            )}
             <div className="text-left hidden sm:block">
               <div className="text-xs font-semibold text-stone-900 leading-tight flex items-center space-x-1.5">
                 <span>{currentUser.name}</span>

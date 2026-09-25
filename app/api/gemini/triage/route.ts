@@ -5,116 +5,121 @@ import { Type } from '@google/genai';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { clientName, clientCompany, location, problemDescription, equipmentName, imageContext } = body;
+    const { messages, clientContext } = body;
 
-    const prompt = `
-Você é o Bot IA de Triagem e Qualificação de Chamados da plataforma corporativa "CorpServices".
-Analise o relato do cliente e determine com precisão técnica se trata-se de um Chamado de SERVIÇO (manutenção preventiva, corretiva, elétrica, climatização, reparo em campo) OU de uma Solicitação de COMPRA (aquisição de materiais, peças de reposição, ferramentas, insumos, suprimentos de estoque).
+    const systemInstruction = `
+Você é o Assistente Virtual Inteligente da plataforma CorpServices.
+Sua missão é conversar com o cliente para qualificar de forma amigável e direta a sua solicitação, sem termos técnicos excessivos ou explicações longas.
+Mantenha suas respostas curtas, profissionais, limpas e focadas em resolver o problema do cliente.
 
-Dados fornecidos:
-- Cliente: ${clientName || 'Não informado'}
-- Empresa: ${clientCompany || 'Não informado'}
-- Local/Setor: ${location || 'Não informado'}
-- Equipamento/Instalação: ${equipmentName || 'Geral'}
-- Relato do Cliente: "${problemDescription || ''}"
-${imageContext ? `- Contexto de Imagens enviadas: ${imageContext}` : ''}
+Regras da Conversa:
+1. Identifique se o cliente quer um SERVIÇO (manutenção, conserto, elétrica, climatização, limpeza) ou uma COMPRA (peças, ferramentas, lâmpadas, insumos).
+2. Obtenha 3 informações fundamentais de forma conversacional:
+   - Descrição clara do problema ou material necessário.
+   - Localização física (onde fica o problema).
+   - Equipamento ou sistema (ex: ar condicionado, gerador, lâmpadas, etc. - opcional ou geral se não houver).
+3. Seja conciso. Não dê explicações técnicas sobre o que você está fazendo ou como a IA funciona.
+4. Quando você julgar que tem informações suficientes sobre o problema e a localização, preencha o objeto "ticketData" para que o sistema possa gerar o chamado. Caso contrário, mantenha "ticketData" como nulo e faça uma pergunta simples para obter o que falta.
 
-Retorne um objeto JSON estritamente com os seguintes campos:
-- type: "servico" ou "compra"
-- title: título técnico objetivo e padronizado (máximo 80 caracteres)
-- urgency: "baixa", "media", "alta" ou "critica"
-- suggestedCategory: categoria técnica (ex: "Climatização Industrial", "Elétrica Predial", "Mecânica Pesada", "Peças e Insumos", "TI & Infraestrutura")
-- summary: resumo executivo técnico com diagnóstico preliminar para o Gestor tomar a decisão (2 a 3 frases)
-- estimatedCost: valor estimado em Reais (número aproximado realista)
-- suggestedChecklist: lista de 3 a 5 itens práticos para a equipe de campo ou compras
-- replyToClient: mensagem calorosa e profissional da CorpServices informando o cliente que o ticket foi gerado com sucesso, indicando o número de protocolo e próximos passos.
+Contexto do Cliente Logado:
+- Nome: ${clientContext?.name || 'Cliente'}
+- Empresa: ${clientContext?.company || 'CorpServices'}
+- Departamento: ${clientContext?.department || 'Geral'}
+- Telefone: ${clientContext?.phone || 'Não informado'}
+- Email: ${clientContext?.email || 'Não informado'}
+
+Se o primeiro input for vazio ou genérico, cumprimente o cliente e pergunte brevemente como pode ajudar.
 `;
 
-    if (!process.env.GEMINI_API_KEY) {
-      // Fallback if environment key is pending
-      const isPurchase = (problemDescription || '').toLowerCase().includes('compr') || 
-                         (problemDescription || '').toLowerCase().includes('adquir') ||
-                         (problemDescription || '').toLowerCase().includes('peça') ||
-                         (problemDescription || '').toLowerCase().includes('material');
+    // Format messages for Gemini API
+    const formattedContents = messages.map((m: any) => ({
+      role: m.senderRole === 'cliente' ? 'user' : 'model',
+      parts: [{ text: m.message }]
+    }));
 
-      return NextResponse.json({
-        type: isPurchase ? 'compra' : 'servico',
-        title: isPurchase ? `Aquisição de Suprimentos: ${equipmentName || 'Manutenção'}` : `Atendimento Técnico: ${equipmentName || 'Instalação Predial'}`,
-        urgency: 'alta',
-        suggestedCategory: isPurchase ? 'Suprimentos & Peças' : 'Manutenção Geral',
-        summary: `Triagem automática CorpServices: ${isPurchase ? 'Requisição de compra de materiais' : 'Chamado para intervenção técnica em campo'}. Dados coletados pelo Bot IA.`,
-        estimatedCost: isPurchase ? 1200 : 650,
-        suggestedChecklist: isPurchase 
-          ? ['Cotar com 3 fornecedores homologados', 'Verificar estoque mínimo', 'Aprovação orçamentária do Gestor']
-          : ['Inspecionar local e verificar segurança', 'Testar componentes e identificar causa raiz', 'Registrar fotos antes e depois do serviço'],
-        replyToClient: `Olá ${clientName || 'Cliente'}, seu chamado foi qualificado com sucesso! Nossa equipe operacional já recebeu os detalhes e estamos processando o atendimento.`
-      });
+    if (!process.env.GEMINI_API_KEY) {
+      // Fallback local conversation logic if no API key is set
+      const lastUserMessage = [...messages].reverse().find(m => m.senderRole === 'cliente')?.message || '';
+      const text = lastUserMessage.toLowerCase();
+
+      let reply = 'Olá! Como posso ajudar você hoje com seus chamados ou pedidos de compras?';
+      let ticketData: any = null;
+
+      const hasProblem = text.length > 5;
+      const hasLocation = text.includes('sala') || text.includes('andar') || text.includes('bloco') || text.includes('cobertura') || text.includes('depósito') || text.includes('escritório') || text.includes('almoxarifado') || text.includes('geral');
+
+      if (hasProblem) {
+        if (!hasLocation) {
+          reply = 'Entendido. Poderia me informar em qual setor, sala ou localização física ocorreu esse problema?';
+        } else {
+          const isPurchase = text.includes('compr') || text.includes('peça') || text.includes('adquir') || text.includes('lote') || text.includes('insumo');
+          reply = `Perfeito! Entendi a sua necessidade. Classifiquei seu pedido como ${isPurchase ? 'Solicitação de Compra' : 'Ordem de Serviço'}. Gostaria de confirmar a abertura do ticket agora?`;
+          
+          ticketData = {
+            type: isPurchase ? 'compra' : 'servico',
+            title: isPurchase ? 'Aquisição de Materiais de Reposição' : 'Atendimento Técnico Corretivo',
+            description: lastUserMessage,
+            urgency: 'alta',
+            suggestedCategory: isPurchase ? 'Peças e Insumos' : 'Manutenção Geral',
+            location: 'Local indicado pelo cliente',
+            equipmentName: 'Equipamento Geral',
+            estimatedCost: isPurchase ? 950 : 650,
+            suggestedChecklist: isPurchase 
+              ? ['Verificar saldo físico', 'Cotar com fornecedores', 'Enviar para aprovação']
+              : ['Isolar área', 'Diagnosticar falha', 'Executar reparo', 'Registrar fotos']
+          };
+        }
+      }
+
+      return NextResponse.json({ reply, ticketData });
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
+      model: 'gemini-3.5-flash',
+      contents: formattedContents,
       config: {
+        systemInstruction,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            type: {
-              type: Type.STRING,
-              description: "Deve ser exatamente 'servico' ou 'compra'",
+            reply: { 
+              type: Type.STRING, 
+              description: "Sua resposta conversacional curta ao cliente. Se todas as informações estiverem prontas, explique amigavelmente que o resumo do ticket foi gerado e pergunte se ele deseja confirmar a criação." 
             },
-            title: {
-              type: Type.STRING,
-              description: "Título técnico resumido do ticket",
-            },
-            urgency: {
-              type: Type.STRING,
-              description: "'baixa', 'media', 'alta' ou 'critica'",
-            },
-            suggestedCategory: {
-              type: Type.STRING,
-              description: "Categoria da OS ou da Compra",
-            },
-            summary: {
-              type: Type.STRING,
-              description: "Resumo executivo para o Gestor Operacional",
-            },
-            estimatedCost: {
-              type: Type.NUMBER,
-              description: "Custo estimado em R$",
-            },
-            suggestedChecklist: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "Lista de 3 a 5 tarefas de checklist",
-            },
-            replyToClient: {
-              type: Type.STRING,
-              description: "Resposta amigável e profissional ao cliente",
-            },
+            ticketData: {
+              type: Type.OBJECT,
+              description: "Preencha APENAS se as informações coletadas (descrição e localização) forem suficientes. Caso contrário, retorne NULL.",
+              properties: {
+                type: { type: Type.STRING, description: "Exatamente 'servico' ou 'compra'" },
+                title: { type: Type.STRING, description: "Título técnico resumido objetivo" },
+                description: { type: Type.STRING, description: "Descrição compilada do problema" },
+                urgency: { type: Type.STRING, description: "'baixa', 'media', 'alta' ou 'critica'" },
+                suggestedCategory: { type: Type.STRING, description: "Categoria curta (ex: Elétrica, Hidráulica, Climatização, Peças)" },
+                location: { type: Type.STRING, description: "Localização física exata coletada na conversa" },
+                equipmentName: { type: Type.STRING, description: "Nome do equipamento ou sistema afetado" },
+                estimatedCost: { type: Type.NUMBER, description: "Custo estimado aproximado realista" },
+                suggestedChecklist: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: "3 a 4 tarefas simples de checklist"
+                }
+              },
+              required: ['type', 'title', 'description', 'urgency', 'suggestedCategory', 'location', 'equipmentName', 'suggestedChecklist']
+            }
           },
-          required: ['type', 'title', 'urgency', 'suggestedCategory', 'summary', 'replyToClient'],
-        },
-      },
+          required: ['reply']
+        }
+      }
     });
 
     const parsedData = JSON.parse(response.text || '{}');
     return NextResponse.json(parsedData);
   } catch (error: any) {
-    console.error('Erro na rota de triagem Gemini:', error);
+    console.error('Erro na rota de triagem conversacional:', error);
     return NextResponse.json({
-      type: 'servico',
-      title: 'Solicitação de Atendimento Técnico em Campo',
-      urgency: 'media',
-      suggestedCategory: 'Manutenção Geral',
-      summary: 'Triagem executada via motor de contingência CorpServices. Requer análise manual do Gestor.',
-      estimatedCost: 500,
-      suggestedChecklist: [
-        'Análise in-loco da falha',
-        'Registro fotográfico das condições',
-        'Conclusão e coleta de assinatura'
-      ],
-      replyToClient: 'Recebemos suas informações! O chamado foi registrado e já está na fila de triagem da nossa equipe.'
+      reply: 'Desculpe, tive um pequeno problema ao processar sua mensagem. Poderia repetir ou me dizer qual é o chamado?',
+      ticketData: null
     });
   }
 }

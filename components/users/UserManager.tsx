@@ -21,8 +21,27 @@ import {
 export function UserManager() {
   const { users, currentUser, showToast } = useApp();
   
-  // Local list of users to simulate adding new users in the browser state
-  const [localUsers, setLocalUsers] = useState<User[]>(users);
+  const [localUsers, setLocalUsers] = useState<User[]>(() => {
+    if (users.length === 0) {
+      return [{
+        id: 'admin-real',
+        name: 'Administrador Real',
+        email: 'admin@corpservices.com',
+        role: 'admin',
+        department: 'TI',
+        phone: '',
+        avatar: '',
+        permissions: {
+          canApproveOS: true,
+          canApprovePurchases: true,
+          canManageInventory: true,
+          canViewReports: true,
+          canManageUsers: true
+        }
+      }];
+    }
+    return users;
+  });
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form State
@@ -264,11 +283,17 @@ export function UserManager() {
                       className="p-3.5 rounded-xl border border-[#e7dfd1] bg-[#fdfbf7] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                     >
                       <div className="flex items-center space-x-3">
-                        <img 
-                          src={user.avatar} 
-                          alt={user.name} 
-                          className="w-10 h-10 rounded-full object-cover border border-[#d6cab8]" 
-                        />
+                        {user.avatar ? (
+                          <img 
+                            src={user.avatar} 
+                            alt={user.name} 
+                            className="w-10 h-10 rounded-full object-cover border border-[#d6cab8]" 
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center border border-[#d6cab8] text-stone-500 font-bold text-lg">
+                            {user.name.charAt(0)}
+                          </div>
+                        )}
                         <div className="space-y-1">
                           <div className="flex items-center space-x-2">
                             <span className="font-bold text-stone-900 text-sm">{user.name}</span>

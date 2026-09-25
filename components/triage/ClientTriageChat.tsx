@@ -1,28 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { AttachedFile } from '@/types';
 import { 
   Bot, 
-  Sparkles, 
   Send, 
   Wrench, 
   ShoppingCart, 
-  AlertTriangle, 
   Camera, 
   Paperclip, 
   CheckCircle2, 
   ArrowRight,
-  ShieldCheck,
-  Building2,
-  FileText,
-  AlertCircle,
-  Layers,
-  Phone,
   User,
-  MapPin
+  X,
+  FileText
 } from 'lucide-react';
+
+interface ChatMessage {
+  id: string;
+  senderName: string;
+  senderRole: 'cliente' | 'suporte' | 'gestor' | 'tecnico';
+  message: string;
+  timestamp: string;
+  attachments?: AttachedFile[];
+}
 
 interface ClientTriageChatProps {
   onTicketCreated?: (ticketId: string, type: 'servico' | 'compra') => void;
@@ -31,49 +33,31 @@ interface ClientTriageChatProps {
 export function ClientTriageChat({ onTicketCreated }: ClientTriageChatProps) {
   const { createTicketFromTriage, currentUser } = useApp();
 
-  const [description, setDescription] = useState('');
-  const [clientName, setClientName] = useState(currentUser.name);
-  const [clientEmail, setClientEmail] = useState(currentUser.email);
-  const [clientPhone, setClientPhone] = useState('(11) 98765-4321');
-  const [clientCompany, setClientCompany] = useState('Edifício Prime Tower / Condomínio Corporate');
-  const [location, setLocation] = useState('Torre B - 14º Andar - Sala de Servidores');
-  const [equipmentName, setEquipmentName] = useState('');
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [generatedTicketResult, setGeneratedTicketResult] = useState<any>(null);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // Quick Demo Suggestions for user to test instantly
-  const quickSuggestions = [
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
-      title: 'Chiller com vazamento e alta temperatura',
-      desc: 'Chiller Carrier 30XW com vazamento de fluido refrigerante e temperatura subindo na sala de dados.',
-      typeHint: 'servico',
-      equipment: 'Chiller Principal Carrier',
-      location: 'Cobertura Técnica - Bloco A'
-    },
-    {
-      title: 'Compra emergencial de disjuntores e cabos',
-      desc: 'Precisamos de 10 disjuntores bipolares 32A Schneider e 50 metros de cabo flexível 6mm antichama.',
-      typeHint: 'compra',
-      equipment: 'Painel Elétrico Geral',
-      location: 'Almoxarifado / Subsolo 1'
-    },
-    {
-      title: 'Falha intermitente no Gerador de Emergência',
-      desc: 'Gerador Stemac 250kVA falhou no teste semanal de partida automática. Bateria com tensão baixa.',
-      typeHint: 'servico',
-      equipment: 'Gerador Stemac Diesel',
-      location: 'Cabine Primária - Térreo'
+      id: 'msg-welcome',
+      senderName: 'Assistente CorpServices',
+      senderRole: 'suporte',
+      message: `Olá! Descreva aqui o problema técnico ocorrendo no local ou as peças que precisa solicitar para que eu possa abrir seu chamado de imediato.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
-  ];
+  ]);
+  const [inputText, setInputText] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [extractedTicketData, setExtractedTicketData] = useState<any>(null);
+  const [createdTicketResult, setCreatedTicketResult] = useState<any>(null);
+  
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
 
-  const handleApplySuggestion = (sug: typeof quickSuggestions[0]) => {
-    setDescription(sug.desc);
-    setEquipmentName(sug.equipment);
-    setLocation(sug.location);
-  };
+  // Scroll to bottom
+  useEffect(() => {
+    if (chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isProcessing]);
 
+  // File Upload Helper
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
@@ -81,14 +65,14 @@ export function ClientTriageChat({ onTicketCreated }: ClientTriageChatProps) {
 
     reader.onload = () => {
       const newFile: AttachedFile = {
-        id: `att-${Date.now()}`,
+        id: `att-chat-${Date.now()}`,
         name: file.name,
         url: reader.result as string,
         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
         type: file.type.includes('image') ? 'image' : 'pdf',
         category: 'antes',
         uploadedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-        uploadedBy: clientName
+        uploadedBy: currentUser.name
       };
       setAttachedFiles(prev => [...prev, newFile]);
     };
@@ -96,423 +80,338 @@ export function ClientTriageChat({ onTicketCreated }: ClientTriageChatProps) {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmitTriage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!description.trim()) {
-      setErrorMsg('Por favor, descreva a falha ou o material solicitado.');
-      return;
-    }
+  const removeAttachment = (id: string) => {
+    setAttachedFiles(prev => prev.filter(f => f.id !== id));
+  };
 
+  // Submit User Message
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() && attachedFiles.length === 0) return;
+
+    const userText = inputText.trim();
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    // Add user message to UI
+    const newUserMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      senderName: currentUser.name,
+      senderRole: 'cliente',
+      message: userText,
+      timestamp: now,
+      attachments: attachedFiles.length > 0 ? [...attachedFiles] : undefined
+    };
+
+    const updatedMessages = [...messages, newUserMsg];
+    setMessages(updatedMessages);
+    setInputText('');
+    setAttachedFiles([]);
     setIsProcessing(true);
-    setErrorMsg('');
 
     try {
-      // Call Gemini API Route for structured qualification
+      // Call conversational triage API
       const res = await fetch('/api/gemini/triage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          problemDescription: description,
-          equipmentName,
-          location,
-          clientCompany,
-          clientName,
+          messages: updatedMessages,
+          clientContext: {
+            name: currentUser.name,
+            company: currentUser.department, // Use Department or Company info
+            department: currentUser.department,
+            phone: currentUser.phone || '(11) 98765-4321',
+            email: currentUser.email
+          }
         })
       });
 
-      if (!res.ok) {
-        throw new Error('Falha ao se comunicar com a IA');
+      if (!res.ok) throw new Error('API offline');
+
+      const data = await res.json();
+
+      // Add Bot response
+      const botResponseMsg: ChatMessage = {
+        id: `msg-bot-${Date.now()}`,
+        senderName: 'Assistente CorpServices',
+        senderRole: 'suporte',
+        message: data.reply,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, botResponseMsg]);
+
+      // If Bot extracted complete ticket data
+      if (data.ticketData) {
+        setExtractedTicketData(data.ticketData);
+      } else {
+        setExtractedTicketData(null);
       }
 
-      const aiData = await res.json();
-
-      // Create Ticket in State
-      const created = createTicketFromTriage({
-        type: aiData.type || (description.toLowerCase().includes('compr') ? 'compra' : 'servico'),
-        title: aiData.title || `Chamado: ${equipmentName || 'Manutenção Predial'}`,
-        description,
-        urgency: aiData.urgency || 'alta',
-        status: 'aberto',
-        clientName,
-        clientEmail,
-        clientPhone,
-        clientCompany,
-        location,
-        equipmentName,
-        aiTriageSummary: aiData.summary || 'Triagem automática CorpServices.',
-        aiSuggestedCategory: aiData.suggestedCategory || 'Manutenção Geral',
-        aiConfidence: aiData.confidence || 0.98,
-        files: attachedFiles,
-        estimatedCost: aiData.estimatedCost || 750
-      });
-
-      setGeneratedTicketResult({
-        ...created,
-        replyToClient: aiData.replyToClient,
-        suggestedChecklist: aiData.suggestedChecklist || []
-      });
-
-    } catch (err: any) {
-      console.error('Falha na triagem:', err);
-      // Contingency local ticket
-      const isPurchase = description.toLowerCase().includes('compr') || description.toLowerCase().includes('peça');
-      const created = createTicketFromTriage({
+    } catch (error) {
+      console.error('Erro de triagem:', error);
+      
+      // Basic Local Fallback Response
+      const isPurchase = userText.toLowerCase().includes('compr') || userText.toLowerCase().includes('peça');
+      const botResponseMsg: ChatMessage = {
+        id: `msg-bot-err-${Date.now()}`,
+        senderName: 'Assistente CorpServices',
+        senderRole: 'suporte',
+        message: `Entendido. Registrei sua solicitação de ${isPurchase ? 'compra' : 'serviço'}. Deseja confirmar a criação do chamado técnico com esses detalhes agora?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      setMessages(prev => [...prev, botResponseMsg]);
+      setExtractedTicketData({
         type: isPurchase ? 'compra' : 'servico',
-        title: `Solicitação: ${equipmentName || 'Atendimento'}`,
-        description,
+        title: isPurchase ? 'Solicitação de Peças / Insumos' : 'Manutenção Corretiva Predial',
+        description: userText,
         urgency: 'alta',
-        status: 'aberto',
-        clientName,
-        clientEmail,
-        clientPhone,
-        clientCompany,
-        location,
-        equipmentName,
-        aiTriageSummary: `Triagem automática CorpServices: Solicitação categorizada como ${isPurchase ? 'COMPRAS' : 'SERVIÇOS'}.`,
-        aiSuggestedCategory: isPurchase ? 'Suprimentos & Peças' : 'Manutenção Geral',
-        aiConfidence: 0.95,
-        files: attachedFiles,
-        estimatedCost: 800
-      });
-
-      setGeneratedTicketResult({
-        ...created,
-        replyToClient: 'Seu chamado foi registrado e já está na fila de aprovação e despacho da CorpServices.',
-        suggestedChecklist: ['Inspeção no local', 'Validação das peças', 'Registro de fotos']
+        suggestedCategory: isPurchase ? 'Suprimentos' : 'Manutenção Geral',
+        location: 'Área indicada no chamado',
+        equipmentName: 'Equipamento Geral',
+        estimatedCost: isPurchase ? 600 : 400,
+        suggestedChecklist: isPurchase 
+          ? ['Cotar insumos', 'Verificar almoxarifado'] 
+          : ['Avaliar local', 'Reparar e testar']
       });
     } finally {
       setIsProcessing(false);
     }
   };
 
+  // Confirm and Generate Ticket
+  const handleConfirmTicket = () => {
+    if (!extractedTicketData) return;
+
+    const created = createTicketFromTriage({
+      type: extractedTicketData.type,
+      title: extractedTicketData.title,
+      description: extractedTicketData.description,
+      urgency: extractedTicketData.urgency,
+      status: 'aberto',
+      clientName: currentUser.name,
+      clientEmail: currentUser.email,
+      clientPhone: currentUser.phone || '(11) 98765-4321',
+      clientCompany: currentUser.department || 'Matriz Industrial',
+      location: extractedTicketData.location,
+      equipmentName: extractedTicketData.equipmentName,
+      aiTriageSummary: `Triagem amigável executada pelo Chatbot IA. Categoria sugerida: ${extractedTicketData.suggestedCategory}.`,
+      aiSuggestedCategory: extractedTicketData.suggestedCategory,
+      files: [],
+      estimatedCost: extractedTicketData.estimatedCost
+    });
+
+    setCreatedTicketResult(created);
+    setExtractedTicketData(null);
+  };
+
   const handleReset = () => {
-    setDescription('');
-    setAttachedFiles([]);
-    setGeneratedTicketResult(null);
+    setCreatedTicketResult(null);
+    setExtractedTicketData(null);
+    setMessages([
+      {
+        id: `msg-welcome-reset-${Date.now()}`,
+        senderName: 'Assistente CorpServices',
+        senderRole: 'suporte',
+        message: `Olá! Qual o seu novo chamado ou material de compra que deseja registrar agora?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div className="max-w-3xl mx-auto space-y-4">
       
-      {/* Header Banner */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#e7dfd1] shadow-xs">
-        <div className="flex items-start space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#c85a32] to-[#df8c6f] flex items-center justify-center shrink-0 shadow-md shadow-[#c85a32]/20">
-            <Bot className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold text-stone-900 tracking-tight">
-                Triagem Inteligente com Bot IA
-              </h1>
-              <span className="text-xs bg-[#fdf2ed] text-[#c85a32] font-semibold px-2 py-0.5 rounded border border-[#f5d6c6] flex items-center">
-                <Sparkles className="w-3 h-3 mr-1 text-[#c85a32]" /> Powered by Gemini
-              </span>
+      {/* Dynamic Main Workspace: Welcome or Ticket Result */}
+      {createdTicketResult ? (
+        /* Minimal and Clean Success Screen */
+        <div className="bg-white border border-[#e7dfd1] rounded-xl p-6 space-y-5 animate-in fade-in zoom-in-95">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
-            <p className="text-xs sm:text-sm text-stone-600 mt-1 leading-relaxed">
-              O Bot IA analisa sua solicitação em linguagem natural, classifica automaticamente em 
-              <strong className="text-stone-900"> Serviços em Campo</strong> ou 
-              <strong className="text-stone-900"> Solicitação de Compras</strong>, avalia a urgência e gera um Ticket estruturado com rastreabilidade total.
-            </p>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wide">Ticket Criado</span>
+              <h2 className="text-base font-bold text-stone-900">Protocolo #{createdTicketResult.ticketNumber}</h2>
+            </div>
+          </div>
+
+          <div className="p-3.5 bg-[#faf7f2] rounded-lg border border-[#e7dfd1] text-xs text-stone-700 space-y-2">
+            <div>
+              <span className="text-stone-500">Tipo:</span>{' '}
+              <span className="font-semibold capitalize text-stone-800">{createdTicketResult.type === 'servico' ? 'Atendimento Técnico' : 'Solicitação de Compra'}</span>
+            </div>
+            <div>
+              <span className="text-stone-500">Título:</span>{' '}
+              <span className="text-stone-900 font-semibold">{createdTicketResult.title}</span>
+            </div>
+            <div>
+              <span className="text-stone-500">Localização:</span>{' '}
+              <span className="text-stone-800 font-medium">{createdTicketResult.location}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 pt-1.5 justify-end">
+            <button
+              onClick={handleReset}
+              className="px-4 py-2 text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition min-h-[38px]"
+            >
+              Novo Chamado
+            </button>
+            
+            {onTicketCreated && (
+              <button
+                onClick={() => onTicketCreated(createdTicketResult.id, createdTicketResult.type)}
+                className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 rounded-lg bg-[#c85a32] hover:bg-[#b84924] text-white font-semibold text-xs shadow-xs transition min-h-[38px]"
+              >
+                <span>Acompanhar Chamado</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
-      </div>
-
-      {!generatedTicketResult ? (
-        <form onSubmit={handleSubmitTriage} className="space-y-4">
+      ) : (
+        /* Real Interactive Chat Interface */
+        <div className="bg-white border border-[#e7dfd1] rounded-xl flex flex-col h-[68vh] overflow-hidden shadow-xs">
           
-          {/* Client & Enterprise Location Card */}
-          <div className="bg-white p-5 rounded-2xl border border-[#e7dfd1] shadow-xs space-y-4">
-            <h2 className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center">
-              <Building2 className="w-4 h-4 mr-2 text-[#c85a32]" />
-              1. Identificação do Solicitante e Local
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Nome do Solicitante</label>
-                <input
-                  type="text"
-                  value={clientName}
-                  onChange={e => setClientName(e.target.value)}
-                  className="w-full bg-[#faf7f2] border border-[#d6cab8] rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#c85a32] focus:bg-white"
-                  required
-                />
+          {/* Chat Header */}
+          <div className="px-4 py-3 bg-[#faf7f2] border-b border-[#e7dfd1] flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-7 h-7 rounded-lg bg-[#c85a32] text-white flex items-center justify-center shrink-0">
+                <Bot className="w-4 h-4" />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Empresa / Cliente ERP</label>
-                <input
-                  type="text"
-                  value={clientCompany}
-                  onChange={e => setClientCompany(e.target.value)}
-                  className="w-full bg-[#faf7f2] border border-[#d6cab8] rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#c85a32] focus:bg-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Telefone / WhatsApp</label>
-                <input
-                  type="text"
-                  value={clientPhone}
-                  onChange={e => setClientPhone(e.target.value)}
-                  className="w-full bg-[#faf7f2] border border-[#d6cab8] rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#c85a32] focus:bg-white"
-                  required
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Localização Física / Endereço / Setor</label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={e => setLocation(e.target.value)}
-                  className="w-full bg-[#faf7f2] border border-[#d6cab8] rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#c85a32] focus:bg-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Equipamento ou Sistema</label>
-                <input
-                  type="text"
-                  value={equipmentName}
-                  onChange={e => setEquipmentName(e.target.value)}
-                  placeholder="Ex: Chiller, Gerador, Quadro Elétrico"
-                  className="w-full bg-[#faf7f2] border border-[#d6cab8] rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#c85a32] focus:bg-white"
-                />
+                <span className="font-bold text-xs text-stone-900 block leading-tight">Chatbot de Triagem</span>
+                <span className="text-[10px] text-stone-500">Qualificação rápida de chamados</span>
               </div>
             </div>
           </div>
 
-          {/* Problem & Requirements with Quick Suggestions */}
-          <div className="bg-white p-5 rounded-2xl border border-[#e7dfd1] shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center">
-                <FileText className="w-4 h-4 mr-2 text-[#c85a32]" />
-                2. Relato do Chamado ou Necessidade de Compra
-              </h2>
-              <span className="text-[11px] text-stone-500">
-                A IA detecta automaticamente se é Serviço ou Compra
-              </span>
-            </div>
+          {/* Messages Feed */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fdfbf7]">
+            {messages.map((msg) => {
+              const isClient = msg.senderRole === 'cliente';
+              return (
+                <div key={msg.id} className={`flex flex-col ${isClient ? 'items-end' : 'items-start'}`}>
+                  <span className="text-[10px] text-stone-400 mb-0.5 px-1 font-mono">
+                    {msg.senderName.split(' ')[0]} · {msg.timestamp}
+                  </span>
 
-            {/* Describe the problem below */}
+                  <div className={`p-3 rounded-xl max-w-md text-xs leading-relaxed ${
+                    isClient 
+                      ? 'bg-[#c85a32] text-white rounded-tr-none' 
+                      : 'bg-white text-stone-800 border border-[#e7dfd1] rounded-tl-none'
+                  }`}>
+                    <p className="whitespace-pre-wrap">{msg.message}</p>
 
-            {/* Textarea */}
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Descreva detalhadamente o ocorrido, falha ou itens necessários:
-              </label>
-              <textarea
-                rows={4}
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Exemplo: Chiller Carrier parou com alarme de alta pressão, temperatura da sala de servidores está subindo rapidamente. Necessário atendimento urgente."
-                className="w-full bg-[#faf7f2] border border-[#d6cab8] rounded-xl p-3 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-[#c85a32] focus:bg-white"
-                required
-              />
-            </div>
-
-            {/* Attached Photos / Documents */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-stone-700 flex items-center">
-                  <Camera className="w-3.5 h-3.5 mr-1.5 text-[#c85a32]" />
-                  Registros Fotográficos e Documentos (Câmera ou Upload)
-                </label>
-                <label className="cursor-pointer inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#faf7f2] hover:bg-[#ede5d8] text-stone-800 rounded-lg text-xs border border-[#d6cab8] transition">
-                  <Paperclip className="w-3.5 h-3.5 text-[#c85a32]" />
-                  <span>Anexar Foto / Documento</span>
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    capture="environment"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              {attachedFiles.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                  {attachedFiles.map(f => (
-                    <div key={f.id} className="relative bg-[#faf7f2] rounded-xl p-2 border border-[#e7dfd1] flex items-center space-x-2">
-                      {f.type === 'image' ? (
-                        <img src={f.url} alt={f.name} className="w-10 h-10 object-cover rounded" />
-                      ) : (
-                        <FileText className="w-8 h-8 text-[#c85a32] shrink-0" />
-                      )}
-                      <div className="truncate flex-1">
-                        <p className="text-[11px] font-medium text-stone-900 truncate">{f.name}</p>
-                        <p className="text-[10px] text-stone-500">{f.size}</p>
+                    {/* Attached files previews */}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="mt-2 space-y-1 bg-black/5 p-1 rounded-lg">
+                        {msg.attachments.map(f => (
+                          <div key={f.id} className="flex items-center space-x-1.5 text-[10px]">
+                            {f.type === 'image' ? (
+                              <img src={f.url} alt={f.name} className="w-10 h-10 object-cover rounded" />
+                            ) : (
+                              <FileText className="w-4 h-4 text-stone-500" />
+                            )}
+                            <span className="truncate">{f.name}</span>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <p className="text-[11px] text-stone-500 italic">
-                  Nenhuma imagem anexada. Você pode anexar fotos do equipamento danificado ou orçamentos.
-                </p>
-              )}
-            </div>
+              );
+            })}
 
-            {errorMsg && (
-              <div className="p-3 rounded-xl bg-[#fdf2f2] border border-rose-200 text-rose-800 text-xs flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{errorMsg}</span>
+            {isProcessing && (
+              <div className="flex items-center space-x-2 text-xs text-stone-400 bg-white border border-[#e7dfd1] p-2.5 rounded-xl w-32 justify-center">
+                <div className="w-3.5 h-3.5 border-2 border-stone-400 border-t-transparent rounded-full animate-spin" />
+                <span>Analisando...</span>
               </div>
             )}
 
-            {/* Submit Button */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isProcessing}
-                className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-[#c85a32] hover:bg-[#b84924] text-white font-semibold text-xs shadow-xs transition disabled:opacity-50"
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Bot IA Processando e Qualificando Chamado...</span>
-                  </>
-                ) : (
-                  <>
-                    <Bot className="w-4 h-4" />
-                    <span>Iniciar Triagem com Bot IA e Gerar Ticket</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
+            {/* In-Chat Confirm Ticket Card */}
+            {extractedTicketData && (
+              <div className="bg-[#faf7f2] border-2 border-[#df8c6f]/40 p-4 rounded-xl space-y-3 max-w-md animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex items-center space-x-2 text-stone-800 font-bold text-xs">
+                  <Bot className="w-4 h-4 text-[#c85a32]" />
+                  <span>Resumo da Solicitação Identificada:</span>
+                </div>
+                
+                <div className="space-y-1 text-[11px] text-stone-700">
+                  <p><strong>Tipo:</strong> {extractedTicketData.type === 'servico' ? 'Serviço em Campo' : 'Compra de Material'}</p>
+                  <p><strong>Título:</strong> {extractedTicketData.title}</p>
+                  <p><strong>Local:</strong> {extractedTicketData.location}</p>
+                  <p><strong>Equipamento:</strong> {extractedTicketData.equipmentName}</p>
+                </div>
 
-          </div>
-
-        </form>
-      ) : (
-        /* Result Screen - Structured Ticket Created */
-        <div className="bg-white border border-[#e7dfd1] rounded-2xl p-6 shadow-xs space-y-6 animate-in fade-in zoom-in-95">
-          
-          <div className="flex items-center justify-between pb-4 border-b border-[#e7dfd1]">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
-                <CheckCircle2 className="w-6 h-6" />
+                <div className="flex gap-2 justify-end pt-1">
+                  <button
+                    onClick={() => setExtractedTicketData(null)}
+                    className="px-3 py-1.5 text-[10px] text-stone-600 hover:text-stone-900 font-semibold"
+                  >
+                    Alterar Dados
+                  </button>
+                  <button
+                    onClick={handleConfirmTicket}
+                    className="px-3 py-1.5 bg-[#c85a32] hover:bg-[#b84924] text-white text-[10px] font-bold rounded-lg transition inline-flex items-center"
+                  >
+                    <span>Confirmar & Criar Ticket</span>
+                    <ArrowRight className="w-3 h-3 ml-1" />
+                  </button>
+                </div>
               </div>
-              <div>
-                <span className="text-xs uppercase tracking-wider font-semibold text-emerald-800">
-                  Triagem Concluída com Sucesso
-                </span>
-                <h2 className="text-lg font-bold text-stone-900">
-                  Ticket #{generatedTicketResult.ticketNumber}
-                </h2>
-              </div>
-            </div>
+            )}
 
-            <div className="text-right">
-              <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                generatedTicketResult.type === 'servico'
-                  ? 'bg-[#fdf2ed] text-[#c85a32] border border-[#f5d6c6]'
-                  : 'bg-amber-50 text-amber-800 border border-amber-200'
-              }`}>
-                {generatedTicketResult.type === 'servico' ? (
-                  <><Wrench className="w-3.5 h-3.5 mr-1" /> Chamado de Serviços</>
-                ) : (
-                  <><ShoppingCart className="w-3.5 h-3.5 mr-1" /> Solicitação de Compras</>
-                )}
-              </span>
-            </div>
+            <div ref={chatBottomRef} />
           </div>
 
-          {/* AI Bot Feedback Message */}
-          <div className="p-4 rounded-xl bg-[#faf7f2] border border-[#e7dfd1] space-y-2">
-            <div className="flex items-center space-x-2 text-[#c85a32] text-xs font-semibold">
-              <Bot className="w-4 h-4" />
-              <span>Resposta do Bot IA CorpServices:</span>
+          {/* Active Attachments Bar */}
+          {attachedFiles.length > 0 && (
+            <div className="px-4 py-2 border-t border-[#e7dfd1] bg-[#faf7f2] flex flex-wrap gap-2">
+              {attachedFiles.map(f => (
+                <div key={f.id} className="inline-flex items-center space-x-1.5 bg-white border border-[#e7dfd1] px-2 py-1 rounded-lg text-[10px] text-stone-700">
+                  <span className="truncate max-w-[120px]">{f.name}</span>
+                  <button onClick={() => removeAttachment(f.id)} className="text-rose-600 hover:text-rose-800 font-bold ml-1">
+                    ✕
+                  </button>
+                </div>
+              ))}
             </div>
-            <p className="text-xs text-stone-800 leading-relaxed italic">
-              &quot;{generatedTicketResult.replyToClient}&quot;
-            </p>
-          </div>
+          )}
 
-          {/* Ticket Technical Breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 rounded-xl bg-[#faf7f2] border border-[#e7dfd1] space-y-2">
-              <span className="text-[11px] font-bold text-stone-600 uppercase tracking-wider">
-                Parecer Técnico do Bot IA para o Gestor
-              </span>
-              <p className="text-stone-800 leading-relaxed">
-                {generatedTicketResult.aiTriageSummary}
-              </p>
-              
-              <div className="pt-2 flex flex-wrap gap-2 text-[10px]">
-                <span className="px-2 py-0.5 rounded bg-white text-stone-800 border border-[#e7dfd1]">
-                  Urgência: <strong className="text-rose-700 uppercase">{generatedTicketResult.urgency}</strong>
-                </span>
-                <span className="px-2 py-0.5 rounded bg-white text-stone-800 border border-[#e7dfd1]">
-                  Categoria: <strong>{generatedTicketResult.aiSuggestedCategory}</strong>
-                </span>
-                <span className="px-2 py-0.5 rounded bg-white text-stone-800 border border-[#e7dfd1]">
-                  Custo Estimado: <strong>R$ {generatedTicketResult.estimatedCost?.toFixed(2)}</strong>
-                </span>
-              </div>
-            </div>
+          {/* Input Bar */}
+          <form onSubmit={handleSendMessage} className="p-3 border-t border-[#e7dfd1] bg-white flex items-center space-x-2">
+            {/* Attachment Button */}
+            <label className="cursor-pointer p-2.5 rounded-lg bg-[#faf7f2] hover:bg-[#ede5d8] text-stone-600 border border-[#d6cab8] transition shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center">
+              <Camera className="w-4 h-4 text-[#c85a32]" />
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                capture="environment"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
 
-            <div className="p-4 rounded-xl bg-[#faf7f2] border border-[#e7dfd1] space-y-2">
-              <span className="text-[11px] font-bold text-stone-600 uppercase tracking-wider">
-                Ações Recomendadas (Checklist Sugerido)
-              </span>
-              <ul className="space-y-1.5 text-stone-700">
-                {generatedTicketResult.suggestedChecklist?.map((item: string, i: number) => (
-                  <li key={i} className="flex items-center space-x-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#c85a32] shrink-0" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+            <input
+              type="text"
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              placeholder="Digite aqui para o assistente..."
+              className="flex-1 bg-[#faf7f2] border border-[#d6cab8] rounded-lg px-3 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-[#c85a32] focus:bg-white min-h-[40px]"
+              disabled={isProcessing}
+            />
 
-          {/* Routing Notification */}
-          <div className="p-3 rounded-lg bg-[#faf7f2] border border-[#e7dfd1] text-xs text-stone-700 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Layers className="w-4 h-4 text-[#c85a32] shrink-0" />
-              <span>
-                O ticket foi catalogado como <strong>{generatedTicketResult.ticketNumber}</strong>. Código de rastreamento: <strong className="font-mono text-stone-900">{generatedTicketResult.trackingCode || generatedTicketResult.ticketNumber}</strong>.
-              </span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
             <button
-              onClick={handleReset}
-              className="text-xs text-stone-600 hover:text-stone-900 transition py-2 min-h-[44px]"
+              type="submit"
+              disabled={(!inputText.trim() && attachedFiles.length === 0) || isProcessing}
+              className="p-2.5 bg-[#c85a32] hover:bg-[#b84924] disabled:opacity-40 text-white rounded-lg transition min-h-[40px] min-w-[40px] flex items-center justify-center shrink-0 shadow-xs"
             >
-              ← Abrir Outro Chamado
+              <Send className="w-4 h-4" />
             </button>
-
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedTicketResult.trackingCode || generatedTicketResult.ticketNumber);
-                }}
-                className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-[#faf7f2] hover:bg-[#ede5d8] text-stone-800 font-semibold text-xs border border-[#e7dfd1] transition min-h-[44px]"
-              >
-                <span>Copiar Protocolo</span>
-              </button>
-
-              {onTicketCreated && (
-                <button
-                  onClick={() => onTicketCreated(generatedTicketResult.id, generatedTicketResult.type)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-[#c85a32] hover:bg-[#b84924] text-white font-semibold text-xs shadow-xs transition min-h-[44px]"
-                >
-                  <span>Ir para o Campo de Chamados ({generatedTicketResult.type === 'servico' ? 'Serviços' : 'Compras'})</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
+          </form>
 
         </div>
       )}

@@ -587,11 +587,11 @@ export function TicketsManager({ onNavigateToOS, onNavigateToPurchase }: Tickets
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {selectedTicket.files.map(f => (
                       <div key={f.id} className="bg-[#faf7f2] rounded-lg p-2 border border-[#e7dfd1]">
-                        {f.type === 'image' ? (
+                        {f.type === 'image' && f.url ? (
                           <img src={f.url} alt={f.name} className="w-full h-24 object-cover rounded mb-1" />
                         ) : (
-                          <div className="h-24 bg-white rounded flex items-center justify-center mb-1">
-                            <FileText className="w-8 h-8 text-[#c85a32]" />
+                          <div className="w-full h-24 bg-stone-200 rounded flex items-center justify-center mb-1 text-stone-500">
+                            <ImageIcon className="w-8 h-8" />
                           </div>
                         )}
                         <p className="text-[10px] text-stone-900 truncate font-medium">{f.name}</p>

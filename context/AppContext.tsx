@@ -203,7 +203,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
            currentUserRole === 'cliente' ? 'triage' : 'dashboard';
   });
 
-  const currentUser = users.find(u => u.role === currentUserRole) || users[0];
+  const currentUser = users.find(u => u.role === currentUserRole) || users[0] || {
+    id: 'guest',
+    name: 'Visitante',
+    email: 'visitante@corpservices.com',
+    role: 'cliente',
+    department: 'Visitante',
+    avatar: '',
+    permissions: {
+      canApproveOS: false,
+      canApprovePurchases: false,
+      canManageInventory: false,
+      canViewReports: false,
+      canManageUsers: false
+    }
+  };
 
   const switchRole = (role: UserRole) => {
     setCurrentUserRole(role);
