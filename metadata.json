@@ -1,0 +1,6 @@
+{
+  "name": "CorpServices - Gestão de Ordens de Serviço, Chamados e Suprimentos",
+  "description": "Plataforma corporativa de gestão de ordens de serviço (OS), triagem inteligente com IA, solicitações de compra e estoque, auditoria, assinaturas digitais e relatórios gerenciais em tempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

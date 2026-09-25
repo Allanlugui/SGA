@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-terracotta-50: #fdf6f2;
+  --color-terracotta-100: #faebd7;
+  --color-terracotta-200: #f5d6c6;
+  --color-terracotta-300: #ecb59e;
+  --color-terracotta-400: #df8c6f;
+  --color-terracotta-500: #c85a32;
+  --color-terracotta-600: #b84924;
+  --color-terracotta-700: #9a3a1d;
+  --color-terracotta-800: #7c311c;
+  --color-terracotta-900: #662a1a;
+  
+  --color-beige-50: #fdfbf7;
+  --color-beige-100: #f7f4ee;
+  --color-beige-200: #eee8dc;
+  --color-beige-300: #e2d7c5;
+  
+  --color-nude-50: #faf7f2;
+  --color-nude-100: #f3ece2;
+  --color-nude-200: #e7dfd1;
+  --color-nude-300: #d6cab8;
+  --color-nude-400: #bfaea0;
+}
+
+body {
+  background-color: #f7f4ee;
+  color: #262320;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom crisp scrollbar for modern light UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1ede5;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8cebe;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bfaea0;
+}
