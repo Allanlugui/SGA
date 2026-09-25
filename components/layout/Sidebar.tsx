@@ -10,7 +10,6 @@ import {
   Wrench, 
   ShoppingCart, 
   Boxes, 
-  BarChart3, 
   FileText, 
   FolderArchive, 
   Server, 
@@ -18,7 +17,8 @@ import {
   Timer,
   TrendingUp,
   Sparkles,
-  Search
+  Search,
+  Users
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -44,7 +44,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       sublabel: 'Rastreio de Protocolo & Chat',
       icon: Search,
       highlight: true,
-      roles: ['gestor', 'tecnico', 'comprador', 'cliente'],
+      roles: ['admin', 'gestor', 'tecnico', 'comprador', 'cliente'],
       badge: 'Rastreio'
     },
     {
@@ -52,7 +52,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       label: 'Triagem Bot IA',
       icon: Bot,
       highlight: true,
-      roles: ['gestor', 'tecnico', 'comprador', 'cliente'],
+      roles: ['admin', 'gestor', 'tecnico', 'comprador', 'cliente'],
       badge: 'IA'
     },
     {
@@ -60,7 +60,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       label: 'Campo de Chamados',
       sublabel: 'Serviços & Compras',
       icon: Inbox,
-      roles: ['gestor', 'comprador', 'cliente'],
+      roles: ['admin', 'gestor', 'comprador', 'cliente'],
       badge: pendingTicketsTotal > 0 ? String(pendingTicketsTotal) : undefined,
       badgeColor: 'bg-[#c85a32]'
     },
@@ -69,7 +69,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       label: currentUserRole === 'tecnico' ? 'Minhas Ordens de Serviço' : 'Ordens de Serviço (OS)',
       sublabel: 'Timer, Fotos e Assinatura',
       icon: Wrench,
-      roles: ['gestor', 'tecnico'],
+      roles: ['admin', 'gestor', 'tecnico'],
       badge: runningOSCount > 0 ? `${runningOSCount} ativas` : undefined,
       badgeColor: 'bg-emerald-700'
     },
@@ -78,7 +78,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       label: 'Pedidos de Compra',
       sublabel: 'Suprimentos & Cotação',
       icon: ShoppingCart,
-      roles: ['gestor', 'comprador'],
+      roles: ['admin', 'gestor', 'comprador'],
       badge: pendingPurchasesCount > 0 ? String(pendingPurchasesCount) : undefined,
       badgeColor: 'bg-amber-700'
     },
@@ -87,7 +87,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       label: 'Controle de Estoque',
       sublabel: 'Almoxarifado & Peças',
       icon: Boxes,
-      roles: ['gestor', 'comprador', 'tecnico'],
+      roles: ['admin', 'gestor', 'comprador', 'tecnico'],
       badge: criticalStockCount > 0 ? `${criticalStockCount} críticos` : undefined,
       badgeColor: 'bg-rose-700'
     },
@@ -96,36 +96,43 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       label: 'Metas Operacionais',
       sublabel: 'SLA & Produtividade',
       icon: TrendingUp,
-      roles: ['gestor'],
+      roles: ['admin', 'gestor'],
     },
     {
       id: 'reports' as ActiveTab,
       label: 'Relatórios Mensais',
       sublabel: 'Gestão em Tempo Real',
       icon: FileText,
-      roles: ['gestor'],
+      roles: ['admin', 'gestor'],
     },
     {
       id: 'explorer' as ActiveTab,
       label: 'Explorador de Arquivos',
       sublabel: 'Fotos & Laudos das OS',
       icon: FolderArchive,
-      roles: ['gestor', 'tecnico', 'comprador'],
+      roles: ['admin', 'gestor', 'tecnico', 'comprador'],
     },
     {
       id: 'erp' as ActiveTab,
       label: 'Integração ERP',
       sublabel: 'Sincronização Corporativa',
       icon: Server,
-      roles: ['gestor'],
+      roles: ['admin', 'gestor'],
     },
     {
       id: 'audit' as ActiveTab,
       label: 'Histórico & Auditoria',
       sublabel: 'Rastreabilidade Total',
       icon: History,
-      roles: ['gestor'],
+      roles: ['admin', 'gestor'],
     },
+    {
+      id: 'users' as ActiveTab,
+      label: 'Controle de Usuários',
+      sublabel: 'Usuários & Permissões',
+      icon: Users,
+      roles: ['admin', 'gestor'],
+    }
   ];
 
   const visibleItems = navItems.filter(item => item.roles.includes(currentUserRole));

@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net (Default Deny Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable global functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Check if user is Admin or Gestor by reading their profile
+    function isAdmin() {
+      return isSignedIn() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isGestorOrAdmin() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'gestor'
+      );
+    }
+
+    // Rules for /users/{userId}
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      
+      // Creating or updating users: Admin can create or update any.
+      // A user can create/update their own profile, but cannot self-promote to admin or gestor.
+      allow create: if isSignedIn() && isValidId(userId) && (
+        isAdmin() || (
+          isOwner(userId) && 
+          !(incoming().role in ['admin', 'gestor'])
+        )
+      );
+      
+      allow update: if isSignedIn() && isValidId(userId) && (
+        isAdmin() || (
+          isOwner(userId) && 
+          incoming().role == existing().role && // Prevent self-promotion
+          incoming().id == existing().id
+        )
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // Rules for /tickets/{ticketId}
+    match /tickets/{ticketId} {
+      allow get: if isSignedIn() && isValidId(ticketId);
+      allow list: if isSignedIn();
+      
+      // Standard users can create tickets with their client identity. Admins / Gestores can create any.
+      allow create: if isSignedIn() && isValidId(ticketId) && (
+        isGestorOrAdmin() || (
+          incoming().clientEmail == request.auth.token.email
+        )
+      );
+
+      allow update: if isSignedIn() && isValidId(ticketId) && (
+        isGestorOrAdmin() || (
+          existing().clientEmail == request.auth.token.email &&
+          incoming().clientEmail == existing().clientEmail &&
+          incoming().id == existing().id
+        )
+      );
+
+      allow delete: if isGestorOrAdmin();
+    }
+  }
+}

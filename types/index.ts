@@ -1,4 +1,4 @@
-export type UserRole = 'gestor' | 'tecnico' | 'comprador' | 'cliente';
+export type UserRole = 'admin' | 'gestor' | 'tecnico' | 'comprador' | 'cliente';
 
 export type ActiveTab = 
   | 'triage' 
@@ -11,7 +11,16 @@ export type ActiveTab =
   | 'explorer' 
   | 'erp' 
   | 'audit'
-  | 'tracking';
+  | 'tracking'
+  | 'users';
+
+export interface UserPermissions {
+  canApproveOS: boolean;
+  canApprovePurchases: boolean;
+  canManageInventory: boolean;
+  canViewReports: boolean;
+  canManageUsers: boolean;
+}
 
 export interface User {
   id: string;
@@ -21,6 +30,7 @@ export interface User {
   avatar: string;
   department: string;
   phone?: string;
+  permissions?: UserPermissions;
 }
 
 export type TicketType = 'servico' | 'compra';

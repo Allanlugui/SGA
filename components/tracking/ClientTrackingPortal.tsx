@@ -708,14 +708,7 @@ export function ClientTrackingPortal({ initialProtocol, onNavigateToTriage }: Cl
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleSimulateSupportReply}
-                    title="Simular resposta do suporte da CorpServices para testar fluxo"
-                    className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[11px] bg-[#faf7f2] hover:bg-[#ede5d8] text-stone-800 border border-[#e7dfd1] transition"
-                  >
-                    <Bot className="w-3.5 h-3.5 text-[#c85a32]" />
-                    <span>Simular Resposta Suporte</span>
-                  </button>
+                  {/* No test button in production */}
                 </div>
 
                 {/* Messages Box */}

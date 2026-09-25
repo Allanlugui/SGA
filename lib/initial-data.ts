@@ -12,13 +12,36 @@ import {
 
 export const INITIAL_USERS: User[] = [
   {
+    id: 'usr-admin-1',
+    name: 'Rodrigo Silva (Admin)',
+    email: 'admin@corpservices.com.br',
+    role: 'admin',
+    department: 'TI & Administração Geral',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+    phone: '(11) 99999-8888',
+    permissions: {
+      canApproveOS: true,
+      canApprovePurchases: true,
+      canManageInventory: true,
+      canViewReports: true,
+      canManageUsers: true
+    }
+  },
+  {
     id: 'usr-gestor-1',
     name: 'Carlos Mendes',
     email: 'carlos.mendes@corpservices.com.br',
     role: 'gestor',
     department: 'Gerência de Operações & Manutenção',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    phone: '(11) 98765-4321'
+    phone: '(11) 98765-4321',
+    permissions: {
+      canApproveOS: true,
+      canApprovePurchases: true,
+      canManageInventory: true,
+      canViewReports: true,
+      canManageUsers: false
+    }
   },
   {
     id: 'usr-tecnico-1',
@@ -27,7 +50,14 @@ export const INITIAL_USERS: User[] = [
     role: 'tecnico',
     department: 'Equipe Técnica de Campo #04',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    phone: '(11) 99123-5566'
+    phone: '(11) 99123-5566',
+    permissions: {
+      canApproveOS: false,
+      canApprovePurchases: false,
+      canManageInventory: false,
+      canViewReports: false,
+      canManageUsers: false
+    }
   },
   {
     id: 'usr-comprador-1',
@@ -36,7 +66,14 @@ export const INITIAL_USERS: User[] = [
     role: 'comprador',
     department: 'Departamento de Compras & Suprimentos',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    phone: '(11) 97654-8899'
+    phone: '(11) 97654-8899',
+    permissions: {
+      canApproveOS: false,
+      canApprovePurchases: true,
+      canManageInventory: true,
+      canViewReports: false,
+      canManageUsers: false
+    }
   },
   {
     id: 'usr-cliente-1',
@@ -45,7 +82,14 @@ export const INITIAL_USERS: User[] = [
     role: 'cliente',
     department: 'Supervisão de Manutenção Predial',
     avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-    phone: '(11) 99345-1234'
+    phone: '(11) 99345-1234',
+    permissions: {
+      canApproveOS: false,
+      canApprovePurchases: false,
+      canManageInventory: false,
+      canViewReports: false,
+      canManageUsers: false
+    }
   }
 ];
 

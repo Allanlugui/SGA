@@ -6,16 +6,9 @@ import { UserRole } from '@/types';
 import { 
   Building2, 
   Wifi, 
-  WifiOff, 
   RefreshCw, 
   Bell, 
-  UserCheck, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Clock, 
-  ShieldCheck, 
   Database,
-  ChevronDown,
   Menu
 } from 'lucide-react';
 
@@ -27,12 +20,6 @@ export function Navbar({ onOpenMobileMenu }: NavbarProps) {
   const { 
     currentUser, 
     currentUserRole, 
-    switchRole, 
-    users, 
-    isOnline, 
-    offlineQueueCount, 
-    toggleOfflineSimulation, 
-    syncOfflineQueue, 
     isSyncing,
     notifications,
     markNotificationAsRead,
@@ -42,11 +29,11 @@ export function Navbar({ onOpenMobileMenu }: NavbarProps) {
   } = useApp();
 
   const [showNotifMenu, setShowNotifMenu] = useState(false);
-  const [showRoleMenu, setShowRoleMenu] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const roleLabels: Record<UserRole, { label: string; color: string; desc: string }> = {
+    admin: { label: 'Administrador (TI)', color: 'bg-rose-700 text-white', desc: 'Controle Total, Usuários, Permissões, Auditoria' },
     gestor: { label: 'Gestor Operacional', color: 'bg-[#c85a32] text-white', desc: 'Aprovações, Despacho, Metas, Auditoria' },
     tecnico: { label: 'Técnico de Campo', color: 'bg-emerald-700 text-white', desc: 'Execução de OS, Timer, Câmera, Assinatura' },
     comprador: { label: 'Comprador (Suprimentos)', color: 'bg-amber-700 text-white', desc: 'Cotações, Pedidos de Compra, Estoque' },
@@ -88,31 +75,10 @@ export function Navbar({ onOpenMobileMenu }: NavbarProps) {
         {/* Action Controls & Indicators */}
         <div className="flex items-center space-x-2 sm:space-x-3">
           
-          {/* Offline / Online Engine & Sync Button */}
-          <div className="flex items-center space-x-1 sm:space-x-2 bg-[#faf7f2] rounded-lg p-1 border border-[#e7dfd1]">
-            <button
-              onClick={toggleOfflineSimulation}
-              title={isOnline ? "Clique para simular modo offline (área sem internet)" : "Clique para voltar a ficar online"}
-              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all ${
-                isOnline 
-                  ? 'text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200' 
-                  : 'text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 animate-pulse'
-              }`}
-            >
-              {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-600" /> : <WifiOff className="w-3.5 h-3.5 text-amber-700" />}
-              <span className="hidden md:inline">{isOnline ? 'Online' : 'Offline (Simulado)'}</span>
-            </button>
-
-            {offlineQueueCount > 0 && (
-              <button
-                onClick={() => syncOfflineQueue()}
-                disabled={isSyncing}
-                className="flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-semibold bg-[#c85a32] text-white hover:bg-[#b84924] transition shadow-xs"
-              >
-                <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{offlineQueueCount} pendentes</span>
-              </button>
-            )}
+          {/* Production Network Status Badge */}
+          <div className="flex items-center space-x-2 bg-[#faf7f2] px-3 py-1.5 rounded-lg border border-[#e7dfd1] text-xs">
+            <Wifi className="w-4 h-4 text-emerald-600" />
+            <span className="text-stone-700 font-semibold hidden md:inline">Rede Conectada</span>
           </div>
 
           {/* ERP Sync Quick Status */}
@@ -188,78 +154,24 @@ export function Navbar({ onOpenMobileMenu }: NavbarProps) {
             )}
           </div>
 
-          {/* User Role Switcher */}
-          <div className="relative">
-            <button
-              onClick={() => setShowRoleMenu(!showRoleMenu)}
-              className="flex items-center space-x-2 bg-[#faf7f2] hover:bg-[#f3ece2] p-1.5 pr-2.5 rounded-lg border border-[#e7dfd1] transition"
-            >
-              <img 
-                src={currentUser.avatar} 
-                alt={currentUser.name} 
-                className="w-7 h-7 rounded-full object-cover border border-[#d6cab8]"
-              />
-              <div className="text-left hidden sm:block">
-                <div className="text-xs font-semibold text-stone-900 leading-tight flex items-center space-x-1.5">
-                  <span>{currentUser.name.split(' ')[0]}</span>
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${roleLabels[currentUserRole].color}`}>
-                    {currentUserRole}
-                  </span>
-                </div>
-                <div className="text-[10px] text-stone-500 truncate max-w-[120px]">
-                  {currentUser.department}
-                </div>
+          {/* User Profile Container (Static/Production) */}
+          <div className="flex items-center space-x-2 bg-[#faf7f2] p-1.5 pr-3 rounded-lg border border-[#e7dfd1]">
+            <img 
+              src={currentUser.avatar} 
+              alt={currentUser.name} 
+              className="w-7 h-7 rounded-full object-cover border border-[#d6cab8]"
+            />
+            <div className="text-left hidden sm:block">
+              <div className="text-xs font-semibold text-stone-900 leading-tight flex items-center space-x-1.5">
+                <span>{currentUser.name}</span>
+                <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${roleLabels[currentUserRole].color}`}>
+                  {currentUserRole}
+                </span>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-stone-500" />
-            </button>
-
-            {showRoleMenu && (
-              <div className="absolute right-0 mt-2 w-72 bg-white border border-[#e7dfd1] rounded-xl shadow-xl p-2 z-50">
-                <div className="px-3 py-2 border-b border-[#e7dfd1]">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600">
-                    Alternar Perfil Operacional
-                  </span>
-                  <p className="text-[10px] text-stone-500 mt-0.5">
-                    Troque de perfil para testar as permissões e telas de cada usuário
-                  </p>
-                </div>
-                <div className="space-y-1 mt-1">
-                  {(['gestor', 'tecnico', 'comprador', 'cliente'] as UserRole[]).map(role => {
-                    const u = users.find(usr => usr.role === role);
-                    const isActive = currentUserRole === role;
-                    return (
-                      <button
-                        key={role}
-                        onClick={() => {
-                          switchRole(role);
-                          setShowRoleMenu(false);
-                        }}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left text-xs transition ${
-                          isActive 
-                            ? 'bg-[#fdf2ed] text-[#c85a32] border border-[#f5d6c6]' 
-                            : 'hover:bg-[#faf7f2] text-stone-700'
-                        }`}
-                      >
-                        <img 
-                          src={u?.avatar} 
-                          alt={u?.name} 
-                          className="w-7 h-7 rounded-full object-cover border border-[#e7dfd1]" 
-                        />
-                        <div className="flex-1">
-                          <div className="font-semibold text-stone-900 flex items-center justify-between">
-                            <span>{roleLabels[role].label}</span>
-                            {isActive && <CheckCircle2 className="w-3.5 h-3.5 text-[#c85a32]" />}
-                          </div>
-                          <p className="text-[10px] text-stone-500 leading-tight">
-                            {roleLabels[role].desc}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="text-[10px] text-stone-500 truncate max-w-[150px]">
+                {currentUser.department}
               </div>
-            )}
+            </div>
           </div>
 
         </div>

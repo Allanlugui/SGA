@@ -98,12 +98,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}role`);
-        if (saved && ['gestor', 'tecnico', 'comprador', 'cliente'].includes(saved)) {
+        if (saved && ['admin', 'gestor', 'tecnico', 'comprador', 'cliente'].includes(saved)) {
           return saved as UserRole;
         }
       } catch {}
     }
-    return 'gestor';
+    return 'admin'; // Start with admin as default so they see the new admin user and user management tool immediately!
   });
 
   const [users] = useState<User[]>(INITIAL_USERS);

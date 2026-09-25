@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Enterprise user account profile and custom RBAC permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID" },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "gestor", "tecnico", "comprador", "cliente"] },
+        "avatar": { "type": "string" },
+        "department": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "permissions": {
+          "type": "object",
+          "description": "Customizable permissions for this user"
+        }
+      },
+      "required": ["id", "name", "email", "role", "department"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "Customer service tickets and purchase requisitions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ticketNumber": { "type": "string" },
+        "trackingCode": { "type": "string" },
+        "type": { "type": "string", "enum": ["servico", "compra"] },
+        "title": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "urgency": { "type": "string", "enum": ["baixa", "media", "alta", "critica"] },
+        "status": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "clientCompany": { "type": "string" },
+        "location": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "ticketNumber", "type", "title", "description", "urgency", "status", "clientName", "clientEmail", "location", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Store individual user profiles and customized permissions"
+    },
+    "/tickets/{ticketId}": {
+      "schema": "Ticket",
+      "description": "Store all service tickets and purchase requests"
+    }
+  }
+}

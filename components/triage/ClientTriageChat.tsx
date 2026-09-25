@@ -112,7 +112,7 @@ export function ClientTriageChat({ onTicketCreated }: ClientTriageChatProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientDescription: description,
+          problemDescription: description,
           equipmentName,
           location,
           clientCompany,
@@ -128,7 +128,7 @@ export function ClientTriageChat({ onTicketCreated }: ClientTriageChatProps) {
 
       // Create Ticket in State
       const created = createTicketFromTriage({
-        type: aiData.classificationType || (description.toLowerCase().includes('compr') ? 'compra' : 'servico'),
+        type: aiData.type || (description.toLowerCase().includes('compr') ? 'compra' : 'servico'),
         title: aiData.title || `Chamado: ${equipmentName || 'Manutenção Predial'}`,
         description,
         urgency: aiData.urgency || 'alta',
@@ -139,11 +139,11 @@ export function ClientTriageChat({ onTicketCreated }: ClientTriageChatProps) {
         clientCompany,
         location,
         equipmentName,
-        aiTriageSummary: aiData.technicalAssessment,
-        aiSuggestedCategory: aiData.suggestedCategory,
+        aiTriageSummary: aiData.summary || 'Triagem automática CorpServices.',
+        aiSuggestedCategory: aiData.suggestedCategory || 'Manutenção Geral',
         aiConfidence: aiData.confidence || 0.98,
         files: attachedFiles,
-        estimatedCost: aiData.estimatedBudget || 750
+        estimatedCost: aiData.estimatedCost || 750
       });
 
       setGeneratedTicketResult({
@@ -298,34 +298,7 @@ export function ClientTriageChat({ onTicketCreated }: ClientTriageChatProps) {
               </span>
             </div>
 
-            {/* Quick Demo Suggestions */}
-            <div>
-              <span className="text-[11px] text-stone-500 block mb-1.5 font-medium">
-                Ou selecione um exemplo prático para simular:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {quickSuggestions.map((sug, idx) => (
-                  <button
-                    type="button"
-                    key={idx}
-                    onClick={() => handleApplySuggestion(sug)}
-                    className="p-2.5 rounded-xl bg-[#faf7f2] hover:bg-[#ede5d8] border border-[#e7dfd1] hover:border-[#c85a32] text-left transition group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-stone-900 group-hover:text-[#c85a32]">
-                        {sug.title}
-                      </span>
-                      <span className={`text-[9px] uppercase px-1.5 py-0.2 rounded font-bold ${
-                        sug.typeHint === 'servico' ? 'bg-[#fdf2ed] text-[#c85a32] border border-[#f5d6c6]' : 'bg-amber-50 text-amber-800 border border-amber-200'
-                      }`}>
-                        {sug.typeHint}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-stone-500 line-clamp-1 mt-0.5">{sug.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Describe the problem below */}
 
             {/* Textarea */}
             <div>

@@ -19,6 +19,7 @@ import { FileExplorer } from '@/components/explorer/FileExplorer';
 import { ERPSyncCenter } from '@/components/erp/ERPSyncCenter';
 import { AuditTimeline } from '@/components/audit/AuditTimeline';
 import { ClientTrackingPortal } from '@/components/tracking/ClientTrackingPortal';
+import { UserManager } from '@/components/users/UserManager';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 function MainAppContent() {
@@ -146,6 +147,10 @@ function MainAppContent() {
 
           {activeTab === 'audit' && (
             <AuditTimeline />
+          )}
+
+          {activeTab === 'users' && (
+            <UserManager />
           )}
 
         </main>
