@@ -26,6 +26,29 @@ function MainAppContent() {
   const [selectedOSId, setSelectedOSId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [trackingProtocol, setTrackingProtocol] = useState<string | undefined>(undefined);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    requestAnimationFrame(() => {
+      if (active) setMounted(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#f7f4ee] flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-10 h-10 border-4 border-[#c85a32] border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-semibold text-[#c85a32]">CorpServices</span>
+          <span className="text-xs text-stone-500">Carregando sistema corporativo...</span>
+        </div>
+      </div>
+    );
+  }
 
   const handleTicketCreated = (ticketId?: string) => {
     setActiveTab('tickets');

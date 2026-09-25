@@ -550,7 +550,7 @@ export function WorkOrderDetail({ workOrderId, onBack }: WorkOrderDetailProps) {
                 >
                   {inventory.map(item => (
                     <option key={item.id} value={item.id}>
-                      {item.code} - {item.name} (Saldo: {item.quantity} {item.unit}) - R$ {item.sellPrice.toFixed(2)}
+                      {item.code} - {item.name} (Saldo: {item.currentStock} {item.unit}) - R$ {item.sellPrice.toFixed(2)}
                     </option>
                   ))}
                 </select>
